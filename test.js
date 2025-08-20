@@ -1,7 +1,7 @@
 // Test script to verify the Time Tracker API endpoints
 const axios = require("axios");
 
-const BASE_URL = "http://localhost:3000"; // Change to your Replit URL when deployed
+const BASE_URL = "https://intercom-time-tracker.onrender.com"; // Change to your Replit URL when deployed
 
 async function runTests() {
   console.log("🧪 Testing Intercom Time Tracker API");
@@ -133,7 +133,7 @@ async function testWebhookWithSignature() {
     },
   };
 
-  const secret = "your_intercom_secret_here"; // Use your actual secret
+  const secret = "bd9b04ed-ece2-4e31-9cdd-0ea7f60d6720"; // Use your actual secret
   const signature = createWebhookSignature(payload, secret);
 
   try {

@@ -34,23 +34,40 @@ function formatDuration(milliseconds) {
 
 function verifyIntercomSignature(payload, signature) {
   if (!signature) return false;
-
+  
   const expectedSignature = 'sha1=' + crypto
     .createHmac('sha1', INTERCOM_SECRET)
     .update(payload, 'utf8')
     .digest('hex');
-
+    
   return crypto.timingSafeEqual(
     Buffer.from(signature),
     Buffer.from(expectedSignature)
   );
 }
 
-// Canvas Kit Initialize Endpoint
-app.post('/initialize', (req, res) => {
+// Test endpoint to simulate what Intercom should send
+app.get('/test-initialize', (req, res) => {
+  const mockRequest = {
+    context: {
+      location: "conversation",
+      conversation_id: "test_conv_123"
+    },
+    current_admin: {
+      id: "test_admin_456",
+      name: "Test Admin"
+    }
+  };
+  
+  // Simulate the initialize request
+  req.body = mockRequest;
+  
+  // Call the same logic as initialize
   const { context, current_admin } = req.body;
-
+  
+  
   if (!context || context.location !== 'conversation') {
+    console.log('Context check failed:', { context });
     return res.json({
       canvas: {
         content: {
@@ -58,6 +75,11 @@ app.post('/initialize', (req, res) => {
             {
               type: "text",
               text: "Please open a conversation to track time.",
+              style: "muted"
+            },
+            {
+              type: "text",
+              text: `Debug: location=${context?.location || 'null'}, context=${JSON.stringify(context)}`,
               style: "muted"
             }
           ]
@@ -68,8 +90,11 @@ app.post('/initialize', (req, res) => {
 
   const conversationId = context.conversation_id;
   const adminId = current_admin?.id;
-
+  
+  console.log('Extracted data:', { conversationId, adminId });
+  
   if (!conversationId || !adminId) {
+    console.log('ID extraction failed:', { conversationId, adminId, current_admin });
     return res.json({
       canvas: {
         content: {
@@ -78,6 +103,11 @@ app.post('/initialize', (req, res) => {
               type: "text",
               text: "Unable to identify conversation or admin.",
               style: "error"
+            },
+            {
+              type: "text",
+              text: `Debug: convId=${conversationId}, adminId=${adminId}`,
+              style: "muted"
             }
           ]
         }
@@ -85,10 +115,11 @@ app.post('/initialize', (req, res) => {
     });
   }
 
+  // Continue with the rest of the initialize logic...
   // Start or resume timer
   const timerKey = `${adminId}_${conversationId}`;
   let timer = timers.get(timerKey);
-
+  
   if (!timer) {
     // Create new timer
     const sessionId = generateSessionId();
@@ -101,13 +132,15 @@ app.post('/initialize', (req, res) => {
       status: 'running',
       last_update: Date.now()
     };
-
+    
     timers.set(timerKey, timer);
     sessions.set(sessionId, timer);
+    console.log('Created new timer:', timer);
   } else if (timer.status === 'paused') {
     // Resume timer
     timer.status = 'running';
     timer.last_update = Date.now();
+    console.log('Resumed timer:', timer);
   }
 
   // Get conversation history
@@ -141,6 +174,11 @@ app.post('/initialize', (req, res) => {
           style: "paragraph"
         },
         {
+          type: "text",
+          text: `Admin: ${adminId} | Conv: ${conversationId}`,
+          style: "muted"
+        },
+        {
           type: "spacer",
           size: "m"
         }
@@ -167,7 +205,19 @@ app.post('/initialize', (req, res) => {
     });
   }
 
+  console.log('Sending canvas response:', JSON.stringify(canvas, null, 2));
   res.json({ canvas });
+};
+
+// Canvas Kit Initialize Endpoint
+app.post('/initialize', (req, res) => {
+  // Add detailed logging to debug the issue
+  console.log('=== Initialize Request Debug ===');
+  console.log('Full request body:', JSON.stringify(req.body, null, 2));
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('================================');
+  
+  const { context, current_admin } = req.body;
 });
 
 // Webhook endpoint for conversation updates
@@ -184,7 +234,7 @@ app.post('/webhooks/conversations', (req, res) => {
 
   if (type === 'conversation.admin.closed') {
     const conversationId = data.item.id;
-
+    
     // Find and stop all timers for this conversation
     for (const [timerKey, timer] of timers.entries()) {
       if (timer.conversation_id === conversationId) {
@@ -272,7 +322,7 @@ function stopTimer(timer) {
   if (timer.status === 'running') {
     timer.total_elapsed += Date.now() - timer.last_update;
   }
-
+  
   timer.status = 'stopped';
   timer.final_duration = timer.total_elapsed;
   timer.end_time = Date.now();
@@ -316,7 +366,7 @@ app.get('/dashboard', (req, res) => {
         <h1>Time Tracker Dashboard</h1>
         <p>Active Timers: ${timers.size}</p>
         <p>Total Sessions: ${sessions.size}</p>
-
+        
         <h2>Active Timers</h2>
         ${Array.from(timers.entries()).map(([key, timer]) => {
           const currentElapsed = timer.total_elapsed + (timer.status === 'running' ? Date.now() - timer.last_update : 0);
