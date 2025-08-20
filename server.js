@@ -207,7 +207,7 @@ app.get('/test-initialize', (req, res) => {
 
   console.log('Sending canvas response:', JSON.stringify(canvas, null, 2));
   res.json({ canvas });
-};
+});
 
 // Canvas Kit Initialize Endpoint
 app.post('/initialize', (req, res) => {
