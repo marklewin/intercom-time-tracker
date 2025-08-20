@@ -1,14 +1,32 @@
-entrypoint = "index.js"
-modules = ["nodejs-22"]
-hidden = [".config", "package-lock.json"]
-
+modules = ["nodejs-24"]
 [nix]
-channel = "stable-24_05"
+channel = "stable-22_11"
+
+[languages.javascript]
+pattern = "**/{*.js,*.jsx,*.ts,*.tsx,*.json}"
+
+[languages.javascript.languageServer]
+start = "typescript-language-server --stdio"
 
 [deployment]
-run = ["node", "index.js"]
-deploymentTarget = "cloudrun"
+build = "npm install"
+run = "npm start"
 
 [[ports]]
 localPort = 3000
 externalPort = 80
+
+[env]
+NODE_ENV = "development"
+
+[workflows]
+runButton = "Start Server"
+
+[[workflows.workflow]]
+name = "Start Server"
+author = 46665991
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node server.js"
